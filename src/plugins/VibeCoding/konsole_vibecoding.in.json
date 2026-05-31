@@ -1,0 +1,7 @@
+{
+    "KPlugin": {
+        "Name": "Vibe Coding",
+        "Name[en_GB]": "Vibe Coding",
+        "Version": "@RELEASE_SERVICE_VERSION@"
+    }
+}

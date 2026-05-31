@@ -1,0 +1,169 @@
+/*
+    SPDX-FileCopyrightText: 2026 Vibe Coding Contributors
+
+    SPDX-License-Identifier: GPL-2.0-or-later
+*/
+
+#include "vibecodingplugin.h"
+#include "filetreepanel.h"
+#include "gitpanel.h"
+
+#include "MainWindow.h"
+#include "session/Session.h"
+#include "session/SessionController.h"
+
+#include <QDockWidget>
+#include <QMainWindow>
+
+#include <KActionCollection>
+#include <KLocalizedString>
+
+K_PLUGIN_CLASS_WITH_JSON(VibeCodingPlugin, "konsole_vibecoding.json")
+
+// ---------------------------------------------------------------------------
+// Private data (PIMPL — keeps the header clean)
+// ---------------------------------------------------------------------------
+
+struct VibeCodingPluginPrivate {
+    // Per-window widgets
+    QMap<Konsole::MainWindow *, FileTreePanel *> fileTreeForWindow;
+    QMap<Konsole::MainWindow *, GitPanel *> gitPanelForWindow;
+    QMap<Konsole::MainWindow *, QDockWidget *> fileDockForWindow;
+    QMap<Konsole::MainWindow *, QDockWidget *> gitDockForWindow;
+};
+
+// ---------------------------------------------------------------------------
+// Construction / destruction
+// ---------------------------------------------------------------------------
+
+VibeCodingPlugin::VibeCodingPlugin(QObject *parent, const QVariantList &args)
+    : Konsole::IKonsolePlugin(parent, args)
+    , d(std::make_unique<VibeCodingPluginPrivate>())
+{
+    setName(QStringLiteral("VibeCoding"));
+}
+
+VibeCodingPlugin::~VibeCodingPlugin() = default;
+
+// ---------------------------------------------------------------------------
+// createWidgetsForMainWindow — called once per MainWindow by PluginManager
+// ---------------------------------------------------------------------------
+
+void VibeCodingPlugin::createWidgetsForMainWindow(Konsole::MainWindow *mainWindow)
+{
+    // Both docks go on the left side, stacked vertically.
+    // The user can drag/detach them to any position they like.
+
+    // ======== Left dock — File Tree (top) ====================================
+    auto *fileDock = new QDockWidget(i18n("File Tree"), mainWindow);
+    fileDock->setObjectName(QStringLiteral("VibeCodingFileTreeDock"));
+    fileDock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
+
+    auto *fileTree = new FileTreePanel(fileDock);
+    fileDock->setWidget(fileTree);
+
+    mainWindow->addDockWidget(Qt::LeftDockWidgetArea, fileDock);
+
+    // ======== Left dock — Git Panel (bottom) =================================
+    auto *gitDock = new QDockWidget(i18n("Git Panel"), mainWindow);
+    gitDock->setObjectName(QStringLiteral("VibeCodingGitDock"));
+    gitDock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
+
+    auto *gitPanel = new GitPanel(gitDock);
+    gitDock->setWidget(gitPanel);
+
+    // splitDockWidget stacks gitDock *below* fileDock in the left area
+    mainWindow->splitDockWidget(fileDock, gitDock, Qt::Vertical);
+
+    // Both visible by default
+    fileDock->setVisible(true);
+    gitDock->setVisible(true);
+
+    d->fileTreeForWindow[mainWindow] = fileTree;
+    d->fileDockForWindow[mainWindow] = fileDock;
+    d->gitPanelForWindow[mainWindow] = gitPanel;
+    d->gitDockForWindow[mainWindow] = gitDock;
+}
+
+// ---------------------------------------------------------------------------
+// activeViewChanged — called whenever the user switches terminal tabs/splits
+// ---------------------------------------------------------------------------
+
+void VibeCodingPlugin::activeViewChanged(Konsole::SessionController *controller, Konsole::MainWindow *mainWindow)
+{
+    if (!controller || !mainWindow) {
+        return;
+    }
+
+    // Update the file-tree root to the new session's CWD
+    const QString cwd = controller->currentDir();
+    auto fileIt = d->fileTreeForWindow.find(mainWindow);
+    if (fileIt != d->fileTreeForWindow.end()) {
+        fileIt.value()->setRootPath(cwd);
+    }
+
+    // Update the git panel — set working directory and session reference
+    auto gitIt = d->gitPanelForWindow.find(mainWindow);
+    if (gitIt != d->gitPanelForWindow.end()) {
+        gitIt.value()->setWorkingDirectory(cwd);
+        gitIt.value()->setSession(controller->session());
+    }
+
+    // Keep CWD in sync when the user changes directories in the shell.
+    // SessionController already emits currentDirectoryChanged; connect it
+    // once per window (idempotent via unique connection).
+    static QMap<Konsole::MainWindow *, QMetaObject::Connection> fileConns;
+    static QMap<Konsole::MainWindow *, QMetaObject::Connection> gitConns;
+
+    // Disconnect previous session's signal
+    if (fileConns.contains(mainWindow)) {
+        disconnect(fileConns.take(mainWindow));
+    }
+    if (gitConns.contains(mainWindow)) {
+        disconnect(gitConns.take(mainWindow));
+    }
+
+    fileConns[mainWindow] = connect(controller, &Konsole::SessionController::currentDirectoryChanged, mainWindow,
+                                    [this, mainWindow](const QString &dir) {
+                                        auto it = d->fileTreeForWindow.find(mainWindow);
+                                        if (it != d->fileTreeForWindow.end()) {
+                                            it.value()->setRootPath(dir);
+                                        }
+                                    });
+
+    gitConns[mainWindow] = connect(controller, &Konsole::SessionController::currentDirectoryChanged, mainWindow,
+                                   [this, mainWindow](const QString &dir) {
+                                       auto it = d->gitPanelForWindow.find(mainWindow);
+                                       if (it != d->gitPanelForWindow.end()) {
+                                           it.value()->setWorkingDirectory(dir);
+                                       }
+                                   });
+}
+
+// ---------------------------------------------------------------------------
+// menuBarActions — items injected into the "Plugins" menu
+// ---------------------------------------------------------------------------
+
+QList<QAction *> VibeCodingPlugin::menuBarActions(Konsole::MainWindow *mainWindow) const
+{
+    // --- toggle File Tree dock ---
+    auto *toggleFileTree = new QAction(i18n("Show File Tree"), mainWindow);
+    toggleFileTree->setCheckable(true);
+    mainWindow->actionCollection()->setDefaultShortcut(toggleFileTree, QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_F11));
+
+    connect(toggleFileTree, &QAction::triggered, d->fileDockForWindow[mainWindow], &QDockWidget::setVisible);
+    connect(d->fileDockForWindow[mainWindow], &QDockWidget::visibilityChanged, toggleFileTree, &QAction::setChecked);
+
+    // --- toggle Git Panel dock ---
+    auto *toggleGitPanel = new QAction(i18n("Show Git Panel"), mainWindow);
+    toggleGitPanel->setCheckable(true);
+    mainWindow->actionCollection()->setDefaultShortcut(toggleGitPanel, QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_F12));
+
+    connect(toggleGitPanel, &QAction::triggered, d->gitDockForWindow[mainWindow], &QDockWidget::setVisible);
+    connect(d->gitDockForWindow[mainWindow], &QDockWidget::visibilityChanged, toggleGitPanel, &QAction::setChecked);
+
+    return {toggleFileTree, toggleGitPanel};
+}
+
+#include "moc_vibecodingplugin.cpp"
+#include "vibecodingplugin.moc"
