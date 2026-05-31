@@ -95,41 +95,28 @@ void VibeCodingPlugin::activeViewChanged(Konsole::SessionController *controller,
         return;
     }
 
-    // Update the file-tree root to the new session's CWD
+    // File Tree: set initial root only once (first tab), then leave it alone.
+    // It acts as a static project map — QFileSystemModel handles real-time
+    // file change detection (create/delete/rename) via QFileSystemWatcher.
     const QString cwd = controller->currentDir();
     auto fileIt = d->fileTreeForWindow.find(mainWindow);
-    if (fileIt != d->fileTreeForWindow.end()) {
+    if (fileIt != d->fileTreeForWindow.end() && fileIt.value()->windowTitle().isEmpty()) {
         fileIt.value()->setRootPath(cwd);
     }
 
-    // Update the git panel — set working directory and session reference
+    // Git Panel: always track the active session's CWD + session reference
     auto gitIt = d->gitPanelForWindow.find(mainWindow);
     if (gitIt != d->gitPanelForWindow.end()) {
         gitIt.value()->setWorkingDirectory(cwd);
         gitIt.value()->setSession(controller->session());
     }
 
-    // Keep CWD in sync when the user changes directories in the shell.
-    // SessionController already emits currentDirectoryChanged; connect it
-    // once per window (idempotent via unique connection).
-    static QMap<Konsole::MainWindow *, QMetaObject::Connection> fileConns;
+    // Keep git panel CWD in sync when the user changes directories in the shell
     static QMap<Konsole::MainWindow *, QMetaObject::Connection> gitConns;
 
-    // Disconnect previous session's signal
-    if (fileConns.contains(mainWindow)) {
-        disconnect(fileConns.take(mainWindow));
-    }
     if (gitConns.contains(mainWindow)) {
         disconnect(gitConns.take(mainWindow));
     }
-
-    fileConns[mainWindow] = connect(controller, &Konsole::SessionController::currentDirectoryChanged, mainWindow,
-                                    [this, mainWindow](const QString &dir) {
-                                        auto it = d->fileTreeForWindow.find(mainWindow);
-                                        if (it != d->fileTreeForWindow.end()) {
-                                            it.value()->setRootPath(dir);
-                                        }
-                                    });
 
     gitConns[mainWindow] = connect(controller, &Konsole::SessionController::currentDirectoryChanged, mainWindow,
                                    [this, mainWindow](const QString &dir) {
