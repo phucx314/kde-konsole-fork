@@ -134,6 +134,7 @@ file(GLOB ICONS_SRCS "data/icons/*.png")
 
 option(ENABLE_PLUGIN_SSHMANAGER "Build the SSHManager plugin" ON)
 option(ENABLE_PLUGIN_QUICKCOMMANDS "Build the Quick Commands plugin" ON)
+option(ENABLE_PLUGIN_VIBECODING "Build the Vibe Coding plugin" ON)
 
 add_subdirectory( src )
 add_subdirectory( desktop )
