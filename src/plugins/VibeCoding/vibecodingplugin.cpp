@@ -95,17 +95,28 @@ void VibeCodingPlugin::activeViewChanged(Konsole::SessionController *controller,
         return;
     }
 
-    // File Tree: set root from the terminal's CWD on first activation only.
-    // After that it stays put — acts as a static project map.
-    // QFileSystemModel's built-in QFileSystemWatcher handles real-time
-    // file change detection (create/delete/rename).
-    const QString cwd = controller->currentDir();
+    // File Tree: set root from the session's initial working directory on
+    // first activation only.  After that it stays put — acts as a static
+    // project map.  QFileSystemModel's built-in QFileSystemWatcher handles
+    // real-time file change detection (create/delete/rename).
+    //
+    // We use initialWorkingDirectory() instead of currentDir() because
+    // activeViewChanged fires before the shell has started — reading
+    // /proc/<pid>/cwd at that point returns "/" (race condition).
+    // initialWorkingDirectory() is set before the shell spawns, so it's
+    // always available immediately.
     auto fileIt = d->fileTreeForWindow.find(mainWindow);
     if (fileIt != d->fileTreeForWindow.end() && !fileIt.value()->hasRoot()) {
-        fileIt.value()->setRootPath(cwd);
+        if (Konsole::Session *session = controller->session()) {
+            const QString initDir = session->initialWorkingDirectory();
+            if (!initDir.isEmpty()) {
+                fileIt.value()->setRootPath(initDir);
+            }
+        }
     }
 
     // Git Panel: always track the active session's CWD + session reference
+    const QString cwd = controller->currentDir();
     auto gitIt = d->gitPanelForWindow.find(mainWindow);
     if (gitIt != d->gitPanelForWindow.end()) {
         gitIt.value()->setWorkingDirectory(cwd);
