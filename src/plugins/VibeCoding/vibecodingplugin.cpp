@@ -95,12 +95,13 @@ void VibeCodingPlugin::activeViewChanged(Konsole::SessionController *controller,
         return;
     }
 
-    // File Tree: set initial root only once (first tab), then leave it alone.
-    // It acts as a static project map — QFileSystemModel handles real-time
-    // file change detection (create/delete/rename) via QFileSystemWatcher.
+    // File Tree: set root from the terminal's CWD on first activation only.
+    // After that it stays put — acts as a static project map.
+    // QFileSystemModel's built-in QFileSystemWatcher handles real-time
+    // file change detection (create/delete/rename).
     const QString cwd = controller->currentDir();
     auto fileIt = d->fileTreeForWindow.find(mainWindow);
-    if (fileIt != d->fileTreeForWindow.end() && fileIt.value()->windowTitle().isEmpty()) {
+    if (fileIt != d->fileTreeForWindow.end() && !fileIt.value()->hasRoot()) {
         fileIt.value()->setRootPath(cwd);
     }
 

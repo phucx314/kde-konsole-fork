@@ -29,6 +29,9 @@ public:
     /** Set the root directory shown in the tree. */
     void setRootPath(const QString &path);
 
+    /** Returns true if a root path has been set. */
+    bool hasRoot() const;
+
 private Q_SLOTS:
     void onItemDoubleClicked(const QModelIndex &index);
     void goUp();

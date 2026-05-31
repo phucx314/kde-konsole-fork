@@ -68,6 +68,11 @@ FileTreePanel::FileTreePanel(QWidget *parent)
     connect(this, &FileTreePanel::windowTitleChanged, pathDisplay, &QLineEdit::setText);
 }
 
+bool FileTreePanel::hasRoot() const
+{
+    return !m_currentRoot.isEmpty();
+}
+
 void FileTreePanel::setRootPath(const QString &path)
 {
     if (path.isEmpty() || path == m_currentRoot) {
