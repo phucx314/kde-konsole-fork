@@ -73,6 +73,7 @@ void VibeCodingPlugin::createWidgetsForMainWindow(Konsole::MainWindow *mainWindo
     gitDock->setWidget(gitPanel);
 
     // Tabify: both share the same dock area with a tab bar at the top
+    mainWindow->setTabPosition(Qt::LeftDockWidgetArea, QTabWidget::North);
     mainWindow->addDockWidget(Qt::LeftDockWidgetArea, gitDock);
     mainWindow->tabifyDockWidget(fileDock, gitDock);
 
