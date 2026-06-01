@@ -7,10 +7,13 @@
 #include "filetreepanel.h"
 
 #include <QDesktopServices>
+#include <QFile>
 #include <QFileSystemModel>
 #include <QHBoxLayout>
 #include <QHeaderView>
+#include <QInputDialog>
 #include <QLineEdit>
+#include <QMessageBox>
 #include <QPushButton>
 #include <QTreeView>
 #include <QUrl>
@@ -42,6 +45,28 @@ FileTreePanel::FileTreePanel(QWidget *parent)
     navLayout->addWidget(pathDisplay);
 
     mainLayout->addWidget(navBar);
+
+    // --- action buttons (new file, new folder, delete) -----------------------
+    auto *actionsBar = new QWidget(this);
+    auto *actionsLayout = new QHBoxLayout(actionsBar);
+    actionsLayout->setContentsMargins(4, 0, 4, 4);
+    actionsLayout->setSpacing(4);
+
+    auto *newFileBtn = new QPushButton(tr("📄 New File"), actionsBar);
+    connect(newFileBtn, &QPushButton::clicked, this, &FileTreePanel::newFile);
+
+    auto *newFolderBtn = new QPushButton(tr("📁 New Folder"), actionsBar);
+    connect(newFolderBtn, &QPushButton::clicked, this, &FileTreePanel::newFolder);
+
+    auto *deleteBtn = new QPushButton(tr("🗑 Delete"), actionsBar);
+    connect(deleteBtn, &QPushButton::clicked, this, &FileTreePanel::deleteSelected);
+
+    actionsLayout->addWidget(newFileBtn);
+    actionsLayout->addWidget(newFolderBtn);
+    actionsLayout->addWidget(deleteBtn);
+    actionsLayout->addStretch();
+
+    mainLayout->addWidget(actionsBar);
 
     // --- tree view -----------------------------------------------------------
     m_fsModel = new QFileSystemModel(this);
@@ -112,5 +137,72 @@ void FileTreePanel::goUp()
     QDir dir(m_currentRoot);
     if (dir.cdUp()) {
         setRootPath(dir.absolutePath());
+    }
+}
+
+void FileTreePanel::newFile()
+{
+    if (m_currentRoot.isEmpty()) {
+        return;
+    }
+
+    bool ok;
+    const QString name = QInputDialog::getText(this, tr("New File"), tr("File name:"), QLineEdit::Normal, QString(), &ok);
+    if (!ok || name.trimmed().isEmpty()) {
+        return;
+    }
+
+    const QString filePath = m_currentRoot + QLatin1Char('/') + name.trimmed();
+    if (QFile::exists(filePath)) {
+        QMessageBox::warning(this, tr("File Exists"), tr("A file named \"%1\" already exists.").arg(name));
+        return;
+    }
+
+    QFile file(filePath);
+    if (file.open(QIODevice::WriteOnly)) {
+        file.close();
+    }
+}
+
+void FileTreePanel::newFolder()
+{
+    if (m_currentRoot.isEmpty()) {
+        return;
+    }
+
+    bool ok;
+    const QString name = QInputDialog::getText(this, tr("New Folder"), tr("Folder name:"), QLineEdit::Normal, QString(), &ok);
+    if (!ok || name.trimmed().isEmpty()) {
+        return;
+    }
+
+    QDir dir(m_currentRoot);
+    if (!dir.mkdir(name.trimmed())) {
+        QMessageBox::warning(this, tr("Error"), tr("Could not create folder \"%1\".").arg(name));
+    }
+}
+
+void FileTreePanel::deleteSelected()
+{
+    const QModelIndex index = m_treeView->currentIndex();
+    if (!index.isValid()) {
+        return;
+    }
+
+    const QString filePath = m_fsModel->filePath(index);
+    const QFileInfo info(filePath);
+    const QString question = info.isDir()
+        ? tr("Delete folder \"%1\" and all its contents?").arg(info.fileName())
+        : tr("Delete file \"%1\"?").arg(info.fileName());
+
+    if (QMessageBox::question(this, tr("Confirm Delete"), question) != QMessageBox::Yes) {
+        return;
+    }
+
+    if (info.isDir()) {
+        QDir dir(filePath);
+        dir.removeRecursively();
+    } else {
+        QFile::remove(filePath);
     }
 }

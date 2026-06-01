@@ -35,6 +35,9 @@ public:
 private Q_SLOTS:
     void onItemDoubleClicked(const QModelIndex &index);
     void goUp();
+    void newFile();
+    void newFolder();
+    void deleteSelected();
 
 private:
     QFileSystemModel *m_fsModel = nullptr;
