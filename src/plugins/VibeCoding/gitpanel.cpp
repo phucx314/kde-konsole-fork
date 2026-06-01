@@ -7,6 +7,7 @@
 #include "gitpanel.h"
 #include "session/Session.h"
 
+#include <QFileSystemWatcher>
 #include <QGroupBox>
 #include <QLabel>
 #include <QLineEdit>
@@ -14,6 +15,7 @@
 #include <QProcess>
 #include <QPushButton>
 #include <QScrollBar>
+#include <QTimer>
 #include <QVBoxLayout>
 
 GitPanel::GitPanel(QWidget *parent)
@@ -75,6 +77,17 @@ GitPanel::GitPanel(QWidget *parent)
 
     mainLayout->addWidget(actionsGroup);
     mainLayout->addStretch(1);
+
+    // --- file watcher with debounce for auto-refresh -------------------------
+    m_debounce = new QTimer(this);
+    m_debounce->setSingleShot(true);
+    m_debounce->setInterval(1000); // 1 second debounce
+    connect(m_debounce, &QTimer::timeout, this, &GitPanel::refreshStatus);
+
+    m_watcher = new QFileSystemWatcher(this);
+    connect(m_watcher, &QFileSystemWatcher::directoryChanged, this, [this](const QString &) {
+        m_debounce->start(); // restart the debounce timer on every change
+    });
 }
 
 // ---------------------------------------------------------------------------
@@ -86,7 +99,19 @@ void GitPanel::setWorkingDirectory(const QString &path)
     if (path == m_workingDir) {
         return;
     }
+
+    // Stop watching the old directory
+    if (!m_workingDir.isEmpty()) {
+        m_watcher->removePath(m_workingDir);
+    }
+
     m_workingDir = path;
+
+    // Watch the new directory for changes
+    if (!path.isEmpty()) {
+        m_watcher->addPath(path);
+    }
+
     refreshStatus();
 }
 

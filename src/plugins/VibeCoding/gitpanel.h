@@ -9,6 +9,7 @@
 
 #include <QWidget>
 
+class QFileSystemWatcher;
 class QListWidget;
 class QLabel;
 class QLineEdit;
@@ -59,6 +60,8 @@ private:
     QLineEdit *m_commitInput = nullptr;
     QString m_workingDir;
     Konsole::Session *m_session = nullptr;
+    QFileSystemWatcher *m_watcher = nullptr;
+    QTimer *m_debounce = nullptr;
 };
 
 #endif // GITPANEL_H
