@@ -64,7 +64,7 @@ void VibeCodingPlugin::createWidgetsForMainWindow(Konsole::MainWindow *mainWindo
 
     mainWindow->addDockWidget(Qt::LeftDockWidgetArea, fileDock);
 
-    // ======== Left dock — Git Panel (bottom) =================================
+    // ======== Left dock — Git Panel (tabbed with File Tree) ===================
     auto *gitDock = new QDockWidget(i18n("Git Panel"), mainWindow);
     gitDock->setObjectName(QStringLiteral("VibeCodingGitDock"));
     gitDock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
@@ -72,10 +72,12 @@ void VibeCodingPlugin::createWidgetsForMainWindow(Konsole::MainWindow *mainWindo
     auto *gitPanel = new GitPanel(gitDock);
     gitDock->setWidget(gitPanel);
 
-    // splitDockWidget stacks gitDock *below* fileDock in the left area
-    mainWindow->splitDockWidget(fileDock, gitDock, Qt::Vertical);
+    // Tabify: both share the same dock area with a tab bar at the top
+    mainWindow->addDockWidget(Qt::LeftDockWidgetArea, gitDock);
+    mainWindow->tabifyDockWidget(fileDock, gitDock);
 
-    // Both visible by default
+    // File Tree is the active tab by default
+    fileDock->raise();
     fileDock->setVisible(true);
     gitDock->setVisible(true);
 
