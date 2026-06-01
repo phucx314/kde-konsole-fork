@@ -6,7 +6,9 @@
 
 #include "filetreepanel.h"
 
+#include <QDateTime>
 #include <QDesktopServices>
+#include <QDir>
 #include <QFile>
 #include <QFileSystemModel>
 #include <QHBoxLayout>
@@ -15,6 +17,8 @@
 #include <QLineEdit>
 #include <QMessageBox>
 #include <QPushButton>
+#include <QStandardPaths>
+#include <QTextStream>
 #include <QTreeView>
 #include <QUrl>
 #include <QVBoxLayout>
@@ -192,17 +196,45 @@ void FileTreePanel::deleteSelected()
     const QString filePath = m_fsModel->filePath(index);
     const QFileInfo info(filePath);
     const QString question = info.isDir()
-        ? tr("Delete folder \"%1\" and all its contents?").arg(info.fileName())
-        : tr("Delete file \"%1\"?").arg(info.fileName());
+        ? tr("Move folder \"%1\" to trash?").arg(info.fileName())
+        : tr("Move file \"%1\" to trash?").arg(info.fileName());
 
-    if (QMessageBox::question(this, tr("Confirm Delete"), question) != QMessageBox::Yes) {
+    if (QMessageBox::question(this, tr("Confirm Trash"), question) != QMessageBox::Yes) {
         return;
     }
 
-    if (info.isDir()) {
-        QDir dir(filePath);
-        dir.removeRecursively();
-    } else {
-        QFile::remove(filePath);
+    // FreeDesktop trash spec: ~/.local/share/Trash/
+    const QString trashBase = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + QStringLiteral("/Trash");
+    const QString trashFiles = trashBase + QStringLiteral("/files");
+    const QString trashInfo = trashBase + QStringLiteral("/info");
+
+    QDir().mkpath(trashFiles);
+    QDir().mkpath(trashInfo);
+
+    // Handle name collisions by appending a counter
+    QString destName = info.fileName();
+    QString destPath = trashFiles + QLatin1Char('/') + destName;
+    int counter = 1;
+    while (QFile::exists(destPath) || QDir(destPath).exists()) {
+        destName = info.fileName() + QStringLiteral(".%1").arg(counter++);
+        destPath = trashFiles + QLatin1Char('/') + destName;
+    }
+
+    // Write the .trashinfo metadata file
+    const QString infoPath = trashInfo + QLatin1Char('/') + destName + QStringLiteral(".trashinfo");
+    QFile infoFile(infoPath);
+    if (infoFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        QTextStream out(&infoFile);
+        out << "[Trash Info]\n";
+        out << "Path=" << filePath << '\n';
+        out << "DeletionDate=" << QDateTime::currentDateTime().toString(QStringLiteral("yyyy-MM-ddThh:mm:ss")) << '\n';
+        infoFile.close();
+    }
+
+    // Move the file/folder to trash
+    if (!QFile::rename(filePath, destPath)) {
+        QMessageBox::warning(this, tr("Error"), tr("Could not move \"%1\" to trash.").arg(info.fileName()));
+        // Clean up the info file if the move failed
+        QFile::remove(infoPath);
     }
 }
