@@ -82,6 +82,10 @@ void VibeCodingPlugin::createWidgetsForMainWindow(Konsole::MainWindow *mainWindo
     fileDock->setVisible(true);
     gitDock->setVisible(true);
 
+    connect(fileTree, &FileTreePanel::rootPathChanged, mainWindow, [gitPanel](const QString &path) {
+        gitPanel->setWorkingDirectory(path);
+    });
+
     d->fileTreeForWindow[mainWindow] = fileTree;
     d->fileDockForWindow[mainWindow] = fileDock;
     d->gitPanelForWindow[mainWindow] = gitPanel;
@@ -118,11 +122,13 @@ void VibeCodingPlugin::activeViewChanged(Konsole::SessionController *controller,
         }
     }
 
-    // Git Panel: always track the active session's CWD + session reference
+    // Git Panel: track the file tree root once the user explicitly pins a
+    // folder via Open Folder. Otherwise it follows the active session CWD.
     const QString cwd = controller->currentDir();
+    const bool fileTreePinned = fileIt != d->fileTreeForWindow.end() && fileIt.value()->isPinned();
     auto gitIt = d->gitPanelForWindow.find(mainWindow);
     if (gitIt != d->gitPanelForWindow.end()) {
-        gitIt.value()->setWorkingDirectory(cwd);
+        gitIt.value()->setWorkingDirectory(fileTreePinned ? fileIt.value()->rootPath() : cwd);
         gitIt.value()->setSession(controller->session());
     }
 
@@ -135,6 +141,10 @@ void VibeCodingPlugin::activeViewChanged(Konsole::SessionController *controller,
 
     gitConns[mainWindow] = connect(controller, &Konsole::SessionController::currentDirectoryChanged, mainWindow,
                                    [this, mainWindow](const QString &dir) {
+                                       auto fileIt = d->fileTreeForWindow.find(mainWindow);
+                                       if (fileIt != d->fileTreeForWindow.end() && fileIt.value()->isPinned()) {
+                                           return;
+                                       }
                                        auto it = d->gitPanelForWindow.find(mainWindow);
                                        if (it != d->gitPanelForWindow.end()) {
                                            it.value()->setWorkingDirectory(dir);
