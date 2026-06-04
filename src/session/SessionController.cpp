@@ -140,7 +140,7 @@ SessionController::SessionController(Session *sessionParam, TerminalDisplay *vie
 
     // handle user interface related to session (menus etc.)
     if (isKonsolePart()) {
-        setComponentName(QStringLiteral("konsole"), i18n("Konsole"));
+        setComponentName(QStringLiteral("konsole"), i18n("Vibeminal"));
         setXMLFile(QStringLiteral("partui.rc"));
         setupCommonActions();
     } else {
@@ -460,7 +460,7 @@ void SessionController::openUrl(const QUrl &url)
     } else {
         // TODO Implement handling for other Url types
 
-        KMessageBox::error(view()->window(), i18n("Konsole does not know how to open the bookmark: ") + url.toDisplayString());
+        KMessageBox::error(view()->window(), i18n("Vibeminal does not know how to open the bookmark: ") + url.toDisplayString());
 
         qCDebug(KonsoleDebug) << "Unable to open bookmark at url" << url << ", I do not know"
                               << " how to handle the protocol " << url.scheme();

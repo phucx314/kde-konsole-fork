@@ -1,10 +1,10 @@
 {
-    "id": "org.kde.konsole",
+    "id": "org.kde.vibeminal",
     "branch": "master",
     "runtime": "org.kde.Platform",
     "runtime-version": "6.10",
     "sdk": "org.kde.Sdk",
-    "command": "konsole",
+    "command": "vibeminal",
     "tags": ["nightly"],
     "desktop-file-name-suffix": " (Nightly)",
     "finish-args": [
@@ -18,7 +18,7 @@
     "rename-icon": "utilities-terminal",
     "modules": [
         {
-            "name": "konsole",
+            "name": "vibeminal",
             "buildsystem": "cmake-ninja",
             "config-opts": [
                 "-DINSTALL_ICONS=ON"

@@ -118,6 +118,8 @@ MainWindow::MainWindow()
     , _newTabMenuAction(nullptr)
     , _pluggedController(nullptr)
 {
+    setComponentName(QStringLiteral("vibeminal"), QStringLiteral("Vibeminal"));
+
     // Set the WA_NativeWindow attribute to force the creation of the QWindow.
     // Without this QWidget::windowHandle() returns 0.
     // See https://phabricator.kde.org/D23108
@@ -378,7 +380,8 @@ void MainWindow::updateWindowCaption()
         }
     }
 
-    setCaption(caption);
+    const QString fullTitle = caption.trimmed().isEmpty() ? QStringLiteral("Vibeminal") : QStringLiteral("%1 — Vibeminal").arg(caption);
+    setWindowTitle(fullTitle);
 }
 
 void MainWindow::updateWindowIcon()
