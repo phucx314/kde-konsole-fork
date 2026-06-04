@@ -376,8 +376,8 @@ set(konsole_SRCS
 # Sets the icon on Windows and OSX
 ecm_add_app_icon(ICONS_SOURCES ICONS ${ICONS_SRCS})
 
-add_executable(konsole ${konsole_SRCS} ${ICONS_SOURCES})
-target_link_libraries(konsole
+add_executable(vibeminal ${konsole_SRCS} ${ICONS_SOURCES})
+target_link_libraries(vibeminal
   konsoleprivate
   konsoleapp
   KF6::XmlGui
@@ -390,18 +390,18 @@ target_link_libraries(konsole
 )
 
 if(APPLE)
-    set_target_properties(konsole PROPERTIES
-        MACOSX_BUNDLE_GUI_IDENTIFIER "org.kde.konsole"
-        MACOSX_BUNDLE_BUNDLE_NAME "Konsole"
-        MACOSX_BUNDLE_DISPLAY_NAME "Konsole"
-        MACOSX_BUNDLE_INFO_STRING "Konsole, the KDE terminal emulator"
-        MACOSX_BUNDLE_LONG_VERSION_STRING "Konsole ${RELEASE_SERVICE_VERSION}"
+    set_target_properties(vibeminal PROPERTIES
+        MACOSX_BUNDLE_GUI_IDENTIFIER "org.kde.vibeminal"
+        MACOSX_BUNDLE_BUNDLE_NAME "Vibeminal"
+        MACOSX_BUNDLE_DISPLAY_NAME "Vibeminal"
+        MACOSX_BUNDLE_INFO_STRING "Vibeminal, the KDE terminal emulator"
+        MACOSX_BUNDLE_LONG_VERSION_STRING "Vibeminal ${RELEASE_SERVICE_VERSION}"
         MACOSX_BUNDLE_SHORT_VERSION_STRING "${RELEASE_SERVICE_VERSION_MAJOR}.${RELEASE_SERVICE_VERSION_MINOR}"
         MACOSX_BUNDLE_BUNDLE_VERSION "${RELEASE_SERVICE_VERSION}"
-        MACOSX_BUNDLE_COPYRIGHT "1997-2022 The Konsole Developers")
+        MACOSX_BUNDLE_COPYRIGHT "1997-2022 The Vibeminal Developers")
 endif()
 
-install(TARGETS konsole ${KDE_INSTALL_TARGETS_DEFAULT_ARGS})
+install(TARGETS vibeminal ${KDE_INSTALL_TARGETS_DEFAULT_ARGS})
 
 ### Embedded Konsole KPart
 

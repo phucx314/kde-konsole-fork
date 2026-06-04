@@ -34,6 +34,12 @@ doxydoc/
 .idea
 /cmake-build*
 
+# Ignore local AppImage packaging artifacts
+/.appimage-tools/
+/AppDir/
+/*.AppImage
+/appimagetool.log
+
 !/tests/Makefile
 !/tests/*/Makefile
 

@@ -50,7 +50,7 @@ using Konsole::Application;
 #include <QTimer>
 #endif
 
-// fill the KAboutData structure with information about contributors to Konsole.
+// fill the KAboutData structure with information about contributors to Vibeminal.
 void fillAboutData(KAboutData &aboutData);
 
 // check and report whether this konsole instance should use a new konsole
@@ -133,7 +133,7 @@ static void migrateRenamedConfigKeys()
 }
 
 // ***
-// Entry point into the Konsole terminal application.
+// Entry point into the Vibeminal terminal application.
 // ***
 int main(int argc, char *argv[])
 {
@@ -158,6 +158,11 @@ int main(int argc, char *argv[])
         needToDeleteQApplication = true;
     }
 #endif
+
+    QCoreApplication::setApplicationName(QStringLiteral("vibeminal"));
+    QCoreApplication::setApplicationVersion(QStringLiteral(KONSOLE_VERSION));
+    QGuiApplication::setApplicationDisplayName(QStringLiteral("Vibeminal"));
+    QGuiApplication::setDesktopFileName(QStringLiteral("org.kde.vibeminal"));
 
     auto app = new QApplication(argc, argv);
 
@@ -185,12 +190,12 @@ int main(int argc, char *argv[])
 
     KLocalizedString::setApplicationDomain("konsole");
 
-    KAboutData about(QStringLiteral("konsole"),
-                     i18nc("@title", "Konsole"),
+    KAboutData about(QStringLiteral("vibeminal"),
+                     i18nc("@title", "Vibeminal"),
                      QStringLiteral(KONSOLE_VERSION),
                      i18nc("@title", "Terminal emulator"),
                      KAboutLicense::GPL_V2,
-                     i18nc("@info:credit", "(c) 1997-2022, The Konsole Developers"),
+                     i18nc("@info:credit", "(c) 1997-2022, The Vibeminal Developers"),
                      QString(),
                      QStringLiteral("https://konsole.kde.org/"));
     fillAboutData(about);
@@ -253,20 +258,20 @@ int main(int argc, char *argv[])
     needToDeleteQApplication = false;
 #endif
 
-    // If we reach this location, there was no existing copy of Konsole
+    // If we reach this location, there was no existing copy of Vibeminal
     // running, so create a new instance.
     Application konsoleApp(parser, customCommand);
 
 #if HAVE_DBUS
     // The activateRequested() signal is emitted when a second instance
-    // of Konsole is started.
+    // of Vibeminal is started.
     QObject::connect(&dbusService, &KDBusService::activateRequested, &konsoleApp, &Application::slotActivateRequested);
 #endif
 
     if (app->isSessionRestored()) {
         restoreSession(konsoleApp);
     } else {
-        // Do not finish starting Konsole due to:
+        // Do not finish starting Vibeminal due to:
         // 1. An argument was given to just printed info
         // 2. An invalid situation occurred
         const bool continueStarting = (konsoleApp.newInstance() != 0);

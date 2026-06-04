@@ -1,6 +1,6 @@
-# Konsole - KDE's Terminal Emulator
+# Vibeminal - KDE's Terminal Emulator
 
-Konsole is a terminal program for KDE.
+Vibeminal is a terminal program for KDE, based on Konsole.
 
 As well as being a standalone program, it is also used by other KDE programs
 such as the Kate editor and KDevelop development environment to provide easy

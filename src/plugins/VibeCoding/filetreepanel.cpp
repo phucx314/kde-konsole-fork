@@ -6,12 +6,19 @@
 
 #include "filetreepanel.h"
 
+#include <QDateTime>
 #include <QDesktopServices>
+#include <QDir>
+#include <QFile>
 #include <QFileSystemModel>
 #include <QHBoxLayout>
 #include <QHeaderView>
+#include <QInputDialog>
 #include <QLineEdit>
+#include <QMessageBox>
 #include <QPushButton>
+#include <QStandardPaths>
+#include <QTextStream>
 #include <QTreeView>
 #include <QUrl>
 #include <QVBoxLayout>
@@ -43,6 +50,28 @@ FileTreePanel::FileTreePanel(QWidget *parent)
 
     mainLayout->addWidget(navBar);
 
+    // --- action buttons (new file, new folder, delete) -----------------------
+    auto *actionsBar = new QWidget(this);
+    auto *actionsLayout = new QHBoxLayout(actionsBar);
+    actionsLayout->setContentsMargins(4, 0, 4, 4);
+    actionsLayout->setSpacing(4);
+
+    auto *newFileBtn = new QPushButton(tr("📄 New File"), actionsBar);
+    connect(newFileBtn, &QPushButton::clicked, this, &FileTreePanel::newFile);
+
+    auto *newFolderBtn = new QPushButton(tr("📁 New Folder"), actionsBar);
+    connect(newFolderBtn, &QPushButton::clicked, this, &FileTreePanel::newFolder);
+
+    auto *deleteBtn = new QPushButton(tr("🗑 Delete"), actionsBar);
+    connect(deleteBtn, &QPushButton::clicked, this, &FileTreePanel::deleteSelected);
+
+    actionsLayout->addWidget(newFileBtn);
+    actionsLayout->addWidget(newFolderBtn);
+    actionsLayout->addWidget(deleteBtn);
+    actionsLayout->addStretch();
+
+    mainLayout->addWidget(actionsBar);
+
     // --- tree view -----------------------------------------------------------
     m_fsModel = new QFileSystemModel(this);
     m_fsModel->setReadOnly(true);
@@ -66,6 +95,11 @@ FileTreePanel::FileTreePanel(QWidget *parent)
     // Keep pathDisplay in sync when setRootPath is called.
     // We store a pointer via a lambda connection.
     connect(this, &FileTreePanel::windowTitleChanged, pathDisplay, &QLineEdit::setText);
+}
+
+bool FileTreePanel::hasRoot() const
+{
+    return !m_currentRoot.isEmpty();
 }
 
 void FileTreePanel::setRootPath(const QString &path)
@@ -107,5 +141,100 @@ void FileTreePanel::goUp()
     QDir dir(m_currentRoot);
     if (dir.cdUp()) {
         setRootPath(dir.absolutePath());
+    }
+}
+
+void FileTreePanel::newFile()
+{
+    if (m_currentRoot.isEmpty()) {
+        return;
+    }
+
+    bool ok;
+    const QString name = QInputDialog::getText(this, tr("New File"), tr("File name:"), QLineEdit::Normal, QString(), &ok);
+    if (!ok || name.trimmed().isEmpty()) {
+        return;
+    }
+
+    const QString filePath = m_currentRoot + QLatin1Char('/') + name.trimmed();
+    if (QFile::exists(filePath)) {
+        QMessageBox::warning(this, tr("File Exists"), tr("A file named \"%1\" already exists.").arg(name));
+        return;
+    }
+
+    QFile file(filePath);
+    if (file.open(QIODevice::WriteOnly)) {
+        file.close();
+    }
+}
+
+void FileTreePanel::newFolder()
+{
+    if (m_currentRoot.isEmpty()) {
+        return;
+    }
+
+    bool ok;
+    const QString name = QInputDialog::getText(this, tr("New Folder"), tr("Folder name:"), QLineEdit::Normal, QString(), &ok);
+    if (!ok || name.trimmed().isEmpty()) {
+        return;
+    }
+
+    QDir dir(m_currentRoot);
+    if (!dir.mkdir(name.trimmed())) {
+        QMessageBox::warning(this, tr("Error"), tr("Could not create folder \"%1\".").arg(name));
+    }
+}
+
+void FileTreePanel::deleteSelected()
+{
+    const QModelIndex index = m_treeView->currentIndex();
+    if (!index.isValid()) {
+        return;
+    }
+
+    const QString filePath = m_fsModel->filePath(index);
+    const QFileInfo info(filePath);
+    const QString question = info.isDir()
+        ? tr("Move folder \"%1\" to trash?").arg(info.fileName())
+        : tr("Move file \"%1\" to trash?").arg(info.fileName());
+
+    if (QMessageBox::question(this, tr("Confirm Trash"), question) != QMessageBox::Yes) {
+        return;
+    }
+
+    // FreeDesktop trash spec: ~/.local/share/Trash/
+    const QString trashBase = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + QStringLiteral("/Trash");
+    const QString trashFiles = trashBase + QStringLiteral("/files");
+    const QString trashInfo = trashBase + QStringLiteral("/info");
+
+    QDir().mkpath(trashFiles);
+    QDir().mkpath(trashInfo);
+
+    // Handle name collisions by appending a counter
+    QString destName = info.fileName();
+    QString destPath = trashFiles + QLatin1Char('/') + destName;
+    int counter = 1;
+    while (QFile::exists(destPath) || QDir(destPath).exists()) {
+        destName = info.fileName() + QStringLiteral(".%1").arg(counter++);
+        destPath = trashFiles + QLatin1Char('/') + destName;
+    }
+
+    // Write the .trashinfo metadata file
+    const QString infoPath = trashInfo + QLatin1Char('/') + destName + QStringLiteral(".trashinfo");
+    QFile infoFile(infoPath);
+    if (infoFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        QTextStream out(&infoFile);
+        out << "[Trash Info]\n";
+        out << "Path=" << filePath << '\n';
+        out << "DeletionDate=" << QDateTime::currentDateTime().toString(QStringLiteral("yyyy-MM-ddThh:mm:ss")) << '\n';
+        infoFile.close();
+    }
+
+    // Move the file/folder to trash
+    if (!QFile::rename(filePath, destPath)) {
+        QMessageBox::warning(this, tr("Error"), tr("Could not move \"%1\" to trash.").arg(info.fileName()));
+        // Clean up the info file if the move failed
+        QFile::remove(infoPath);
     }
 }
