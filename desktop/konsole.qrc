@@ -5,4 +5,9 @@
         <file>partui.rc</file>
         <file>sessionui.rc</file>
     </qresource>
+    <qresource prefix="/kxmlgui5/vibeminal">
+        <file alias="vibeminalui.rc">konsoleui.rc</file>
+        <file>partui.rc</file>
+        <file>sessionui.rc</file>
+    </qresource>
 </RCC>
