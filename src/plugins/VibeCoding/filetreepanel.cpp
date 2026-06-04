@@ -9,6 +9,7 @@
 #include <QDateTime>
 #include <QDesktopServices>
 #include <QDir>
+#include <QFileDialog>
 #include <QFile>
 #include <QFileSystemModel>
 #include <QHBoxLayout>
@@ -19,6 +20,7 @@
 #include <QPushButton>
 #include <QStandardPaths>
 #include <QTextStream>
+#include <QToolButton>
 #include <QTreeView>
 #include <QUrl>
 #include <QVBoxLayout>
@@ -56,15 +58,22 @@ FileTreePanel::FileTreePanel(QWidget *parent)
     actionsLayout->setContentsMargins(4, 0, 4, 4);
     actionsLayout->setSpacing(4);
 
-    auto *newFileBtn = new QPushButton(tr("📄 New File"), actionsBar);
-    connect(newFileBtn, &QPushButton::clicked, this, &FileTreePanel::newFile);
+    auto makeToolButton = [&](const QString &text, const QString &toolTip, auto slot) {
+        auto *button = new QToolButton(actionsBar);
+        button->setText(text);
+        button->setToolTip(toolTip);
+        button->setAutoRaise(true);
+        button->setToolButtonStyle(Qt::ToolButtonTextOnly);
+        connect(button, &QToolButton::clicked, this, slot);
+        return button;
+    };
 
-    auto *newFolderBtn = new QPushButton(tr("📁 New Folder"), actionsBar);
-    connect(newFolderBtn, &QPushButton::clicked, this, &FileTreePanel::newFolder);
+    auto *openFolderBtn = makeToolButton(QStringLiteral("📂"), tr("Open Folder"), &FileTreePanel::openFolder);
+    auto *newFileBtn = makeToolButton(QStringLiteral("📄"), tr("New File"), &FileTreePanel::newFile);
+    auto *newFolderBtn = makeToolButton(QStringLiteral("📁"), tr("New Folder"), &FileTreePanel::newFolder);
+    auto *deleteBtn = makeToolButton(QStringLiteral("🗑"), tr("Delete Selected"), &FileTreePanel::deleteSelected);
 
-    auto *deleteBtn = new QPushButton(tr("🗑 Delete"), actionsBar);
-    connect(deleteBtn, &QPushButton::clicked, this, &FileTreePanel::deleteSelected);
-
+    actionsLayout->addWidget(openFolderBtn);
     actionsLayout->addWidget(newFileBtn);
     actionsLayout->addWidget(newFolderBtn);
     actionsLayout->addWidget(deleteBtn);
@@ -102,6 +111,16 @@ bool FileTreePanel::hasRoot() const
     return !m_currentRoot.isEmpty();
 }
 
+QString FileTreePanel::rootPath() const
+{
+    return m_currentRoot;
+}
+
+bool FileTreePanel::isPinned() const
+{
+    return m_isPinned;
+}
+
 void FileTreePanel::setRootPath(const QString &path)
 {
     if (path.isEmpty() || path == m_currentRoot) {
@@ -112,6 +131,7 @@ void FileTreePanel::setRootPath(const QString &path)
     QModelIndex rootIdx = m_fsModel->setRootPath(path);
     m_treeView->setRootIndex(rootIdx);
     setWindowTitle(path); // triggers the connection to pathDisplay
+    Q_EMIT rootPathChanged(path);
 }
 
 void FileTreePanel::onItemDoubleClicked(const QModelIndex &index)
@@ -142,6 +162,18 @@ void FileTreePanel::goUp()
     if (dir.cdUp()) {
         setRootPath(dir.absolutePath());
     }
+}
+
+void FileTreePanel::openFolder()
+{
+    const QString startDir = m_currentRoot.isEmpty() ? QDir::homePath() : m_currentRoot;
+    const QString folder = QFileDialog::getExistingDirectory(this, tr("Open Folder"), startDir);
+    if (folder.isEmpty()) {
+        return;
+    }
+
+    setPinned(true);
+    setRootPath(folder);
 }
 
 void FileTreePanel::newFile()
@@ -237,4 +269,14 @@ void FileTreePanel::deleteSelected()
         // Clean up the info file if the move failed
         QFile::remove(infoPath);
     }
+}
+
+void FileTreePanel::setPinned(bool pinned)
+{
+    if (m_isPinned == pinned) {
+        return;
+    }
+
+    m_isPinned = pinned;
+    Q_EMIT pinnedChanged(pinned);
 }

@@ -32,17 +32,31 @@ public:
     /** Returns true if a root path has been set. */
     bool hasRoot() const;
 
+    /** Returns the current root path shown in the tree. */
+    QString rootPath() const;
+
+    /** Returns true when the tree was explicitly pinned via Open Folder. */
+    bool isPinned() const;
+
+Q_SIGNALS:
+    void rootPathChanged(const QString &path);
+    void pinnedChanged(bool pinned);
+
 private Q_SLOTS:
     void onItemDoubleClicked(const QModelIndex &index);
     void goUp();
+    void openFolder();
     void newFile();
     void newFolder();
     void deleteSelected();
 
 private:
+    void setPinned(bool pinned);
+
     QFileSystemModel *m_fsModel = nullptr;
     QTreeView *m_treeView = nullptr;
     QString m_currentRoot;
+    bool m_isPinned = false;
 };
 
 #endif // FILETREEPANEL_H
